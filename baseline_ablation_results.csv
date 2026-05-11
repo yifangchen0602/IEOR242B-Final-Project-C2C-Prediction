@@ -1,5 +1,0 @@
-model,orig_accuracy,synth_accuracy,accuracy_diff,orig_precision,synth_precision,orig_recall,synth_recall,orig_f1,synth_f1,f1_diff
-Linear Regression,0.8426,0.8155,0.0271,0.2163,0.4403,0.6493,0.6082,0.3245,0.5108,-0.1863
-Logistic Regression,0.9248,0.8702,0.0546,0.3657,0.6424,0.397,0.4066,0.3807,0.498,-0.1173
-Random Forest,0.9424,0.96,-0.0176,0.5076,0.8854,0.3484,0.8585,0.4132,0.8718,-0.4586
-MLP,0.9327,0.9128,0.0199,0.4269,0.7648,0.4525,0.6493,0.4393,0.7023,-0.263
