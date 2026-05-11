@@ -1,6 +1,44 @@
-# Contrastive Model: Deep Model and Contrastive Learning
+# Contrastive Representation Learning for High-Value Buyer Prediction
 
-This implementation uses the final group datasets in `dataset/`:
+This project applies deep tabular modeling and contrastive representation learning to predict high-value buyers in a C2C fashion marketplace. The task is formulated as an imbalanced binary classification problem, where the model predicts whether a user belongs to the high-value buyer class.
+
+The final model combines categorical embeddings, numerical feature normalization, contrastive pretraining, supervised fine-tuning, and multi-seed probability ensembling.
+
+---
+
+## Project Structure
+
+```text
+Project_242b/
+│
+├── dataset/
+│   ├── train.csv
+│   ├── val.csv
+│   ├── test.csv
+│   ├── test_original_label1.csv
+│   └── test_synthetic_label1.csv
+│
+├── output/
+│   ├── baseline_ablation_results.csv
+│   ├── ensemble_metrics.csv
+│   ├── ensemble_summary.txt
+│   ├── final_best_comparison.csv
+│   ├── final_best_comparison.txt
+│   └── training_curves.png
+│
+├── 242b_proj.py
+├── ablation_study.py
+├── contrastive_model.py
+├── data_loader.py
+├── focal_tuning.py
+└── README.md
+```
+
+---
+
+## Dataset
+
+The implementation uses the final group datasets stored in `dataset/`:
 
 - `train.csv`
 - `val.csv`
@@ -8,133 +46,87 @@ This implementation uses the final group datasets in `dataset/`:
 - `test_original_label1.csv`
 - `test_synthetic_label1.csv`
 
-The main script is:
+The current data split follows the final experimental setting:
 
-```bash
-scripts/contrastive_model.py
-```
+- `train.csv` contains SMOTE-NC augmented training samples.
+- `val.csv` and `test.csv` use the original non-SMOTE distribution.
+- Validation and test data are not oversampled, which makes early stopping, threshold tuning, and final evaluation more reliable.
 
-Complete reproducible experiment runs are saved to:
-
-```bash
-contrastive_model/runs/
-```
-
-Clean final report outputs are collected separately in:
-
-```bash
-output/
-```
-
-## How to Run
-
-On this machine, the Anaconda environment has `pandas` and `sklearn`, while PyTorch is available through the cached `PYTHONPATH`. Run:
-
-```bash
-cd /Users/hongjiayang/Desktop/Project_242b
-
-PYTHONPATH="/Users/hongjiayang/.cache/uv/archive-v0/iih7UOTzzvT8Q6DU3sEf0" \
-/Users/hongjiayang/anaconda3/bin/python3 contrastive_model/scripts/contrastive_model.py
-```
-
-Run the final tuned configuration:
-
-```bash
-PYTHONPATH="/Users/hongjiayang/.cache/uv/archive-v0/iih7UOTzzvT8Q6DU3sEf0" \
-/Users/hongjiayang/anaconda3/bin/python3 contrastive_model/scripts/contrastive_model.py \
-  --output-dir contrastive_model/runs/final \
-  --contrastive-mode corruption \
-  --dropout 0.30 \
-  --hidden-dim 128 \
-  --embedding-dim 64 \
-  --temperature 0.10 \
-  --cat-mask-prob 0.10 \
-  --num-mask-prob 0.10 \
-  --num-noise-std 0.03 \
-  --projection-hidden-dim 128 \
-  --projection-dim 64
-```
-
-Run the extra hyperparameter search around the current best configuration:
-
-```bash
-PYTHONPATH="/Users/hongjiayang/.cache/uv/archive-v0/iih7UOTzzvT8Q6DU3sEf0" \
-/Users/hongjiayang/anaconda3/bin/python3 contrastive_model/scripts/hyperparameter_tuning.py \
-  --search extra \
-  --output-root contrastive_model/runs/extra_tuning
-```
-
-Use `--search small` to rerun the earlier small search, or `--search all` to run both sets.
-
-Run focal-loss sensitivity:
-
-```bash
-PYTHONPATH="/Users/hongjiayang/.cache/uv/archive-v0/iih7UOTzzvT8Q6DU3sEf0" \
-/Users/hongjiayang/anaconda3/bin/python3 contrastive_model/scripts/focal_tuning.py
-```
-
-Run the multi-seed ensemble and calibration experiment:
-
-```bash
-PYTHONPATH="/Users/hongjiayang/.cache/uv/archive-v0/iih7UOTzzvT8Q6DU3sEf0" \
-/Users/hongjiayang/anaconda3/bin/python3 contrastive_model/scripts/multi_seed_ensemble.py \
-  --seeds 42,7,13,21,84 \
-  --output-root contrastive_model/runs/multi_seed_ensemble
-```
-
-Quick smoke test:
-
-```bash
-PYTHONPATH="/Users/hongjiayang/.cache/uv/archive-v0/iih7UOTzzvT8Q6DU3sEf0" \
-/Users/hongjiayang/anaconda3/bin/python3 contrastive_model/scripts/contrastive_model.py \
-  --max-train-rows 5000 --epochs 1 --pretrain-epochs 1 \
-  --output-dir contrastive_model/runs/smoke
-```
-
-## What Changed from the Earlier Version
-
-The earlier code generated the label and split from `data.csv`. The current group-final data is already processed and split, so the script now reads the provided split files directly.
-
-Because the training split already includes SMOTE-NC positive samples at about a 1:4 positive-to-negative ratio, the default supervised loss is plain `BCEWithLogitsLoss`. Using an additional `pos_weight` would double-count imbalance correction. The validation and test splits are kept on the original non-SMOTE distribution for early stopping, threshold tuning, and final evaluation. A `--loss-weight` option is still available for sensitivity testing.
-
-## Evaluation Sets
-
-The main comparison evaluates on the original test distribution:
+The main evaluation is conducted on:
 
 ```text
 dataset/test.csv
 ```
 
-The contrastive script reports two test sets:
+This test set represents the original test distribution and is used for comparison with baseline models.
 
-- `original_test`: baseline-aligned test set.
-- `synthetic_test`: label-0 rows from `test.csv` plus synthetic label-1 rows.
+---
 
-Use `original_test` for comparison with `baseline_method/baseline_results.csv`.
+## How to Run
 
-Latest dataset note: `dataset/val.csv` and `dataset/test.csv` are now original, non-SMOTE splits. This is better for validation, early stopping, and threshold tuning. `train.csv` remains SMOTE-NC augmented.
+Install the required Python packages:
 
-## Models
-
-Embedding + MLP:
-
-```text
-categorical integer features -> embedding layers
-numerical features -> log1p for skewed count features -> standardization
-concatenate -> MLP encoder -> classifier head
+```bash
+pip install pandas numpy scikit-learn torch matplotlib
 ```
 
-Contrastive + MLP:
+Run the main contrastive learning model:
+
+```bash
+python contrastive_model.py
+```
+
+Run the baseline and ablation study:
+
+```bash
+python ablation_study.py
+```
+
+Run focal-loss sensitivity analysis:
+
+```bash
+python focal_tuning.py
+```
+
+The final outputs are saved in:
+
+```text
+output/
+```
+
+---
+
+## Model Overview
+
+### Embedding + MLP
+
+The supervised deep tabular baseline uses categorical embeddings and normalized numerical features.
+
+```text
+categorical features -> embedding layers
+numerical features -> preprocessing and standardization
+concatenate features -> MLP encoder -> classifier head
+```
+
+### Contrastive + MLP
+
+The proposed model adds contrastive pretraining before supervised fine-tuning.
 
 ```text
 same encoder
 -> two corrupted views of the same user
 -> projection head
--> contrastive pretraining with InfoNCE loss
+-> InfoNCE contrastive pretraining
 -> supervised fine-tuning with BCEWithLogitsLoss
 ```
 
-The final model uses tabular corruption instead of manually grouped positive pairs. For each user, two augmented views are created by randomly replacing some categorical values, masking some numerical features to zero, and adding small Gaussian noise. These two views are treated as the positive pair; other users in the batch act as negatives.
+During contrastive pretraining, two augmented views are generated from the same user record. The augmentation is based on tabular corruption:
+
+- random replacement of selected categorical values
+- numerical feature masking
+- small Gaussian noise added to numerical features
+
+The two views of the same user are treated as a positive pair. Other users in the batch are treated as negative samples.
 
 The projection head is used only during contrastive pretraining:
 
@@ -143,57 +135,94 @@ encoder -> projection head -> InfoNCE loss
 encoder -> classifier head -> BCE fine-tuning
 ```
 
-## Loss, Optimizer, and Regularization
+---
 
-Supervised loss:
+## Loss Functions
+
+### Supervised Loss
+
+The main supervised objective is:
 
 ```text
 BCEWithLogitsLoss
 ```
 
-Contrastive loss:
+Because the training split already includes SMOTE-NC positive samples, the default setting does not use an additional positive-class weight. Adding `pos_weight` would double-count imbalance correction.
+
+### Contrastive Loss
+
+The contrastive pretraining stage uses InfoNCE loss:
 
 ```text
 InfoNCE = -log exp(sim(z_i, z_j) / T) / sum_k exp(sim(z_i, z_k) / T)
 ```
 
-where `sim` is cosine similarity and `T = 0.20`.
+where `sim` denotes cosine similarity and `T` is the temperature parameter.
 
-Training setup:
+---
 
-- optimizer: Adam
-- learning rate: `1e-3`
-- weight decay: `1e-4`
-- dropout: `0.30`
-- early stopping metric: validation PR-AUC
-- final threshold: report both default `0.5` and validation-tuned threshold
+## Final Contrastive Configuration
 
-Final tuned contrastive configuration:
+The final single-model contrastive configuration is:
 
-- contrastive mode: tabular corruption
-- temperature: `0.10`
-- categorical mask probability: `0.10`
-- numerical mask probability: `0.10`
-- numerical noise std: `0.03`
-- projection hidden dimension: `128`
-- projection dimension: `64`
+```text
+contrastive mode: tabular corruption
+dropout: 0.30
+hidden dimension: 128
+embedding dimension: 64
+temperature: 0.10
+categorical mask probability: 0.10
+numerical mask probability: 0.10
+numerical noise std: 0.03
+projection hidden dimension: 128
+projection dimension: 64
+optimizer: Adam
+learning rate: 1e-3
+weight decay: 1e-4
+early stopping metric: validation PR-AUC
+threshold selection: validation-tuned threshold
+```
 
-## Output Files
+---
 
-- `metrics.csv`: all test-set metrics for default and tuned thresholds.
-- `vs_baselines.csv`: baseline-aligned comparison using `original_test`.
-- `summary.txt`: concise interpretation for report/slides.
-- `histories.csv`: training curves data.
-- `metrics.json`: full metadata and metrics.
-- `predictions.csv`: validation/test labels and predicted probabilities for ensemble analysis.
-- `training_curves.png`: loss and validation PR-AUC plot.
-- `embedding_mlp.pt`, `contrastive_mlp.pt`: saved PyTorch checkpoints.
+## Evaluation Metrics
 
-## Current Result
+The models are evaluated using:
 
-Latest dataset note: `dataset/val.csv` and `dataset/test.csv` are now original, non-SMOTE splits. `train.csv` remains SMOTE-NC augmented. This makes early stopping and threshold tuning much more reliable.
+- Accuracy
+- Precision
+- Recall
+- F1 score
+- ROC-AUC
+- PR-AUC
 
-On the updated original `test.csv`, the best contrastive-model F1 result is `Contrastive + MLP` with projection head, tabular corruption, BCE loss, and validation-tuned threshold:
+Because the task is highly imbalanced, F1 score and PR-AUC are the most important metrics. F1 measures threshold-dependent classification quality, while PR-AUC evaluates ranking performance under class imbalance.
+
+---
+
+## Experimental Results
+
+### Best Baseline Model
+
+After rerunning baselines on the updated data, the best baseline by F1 is the MLP model:
+
+```text
+F1      = 0.4379
+PR-AUC  = 0.4195
+ROC-AUC = 0.8516
+```
+
+Random Forest achieves the best baseline PR-AUC:
+
+```text
+F1      = 0.4331
+PR-AUC  = 0.4569
+ROC-AUC = 0.8743
+```
+
+### Best Single Contrastive Model
+
+The best single contrastive model uses tabular corruption, a projection head, BCE loss, and validation-tuned thresholding:
 
 ```text
 accuracy  = 0.9329
@@ -204,50 +233,26 @@ ROC-AUC   = 0.8680
 PR-AUC    = 0.4526
 ```
 
-After rerunning baselines on the updated data, the best baseline by F1 is MLP:
+Compared with the best MLP baseline, the contrastive model improves F1 from `0.4379` to `0.4749`.
+
+### Multi-Seed Ensemble
+
+The final contrastive configuration was rerun with five random seeds:
 
 ```text
-F1      = 0.4379
-PR-AUC  = 0.4195
-ROC-AUC = 0.8516
+42, 7, 13, 21, 84
 ```
 
-Random Forest has the best baseline PR-AUC:
-
-```text
-F1      = 0.4331
-PR-AUC  = 0.4569
-ROC-AUC = 0.8743
-```
-
-Interpretation for single models: the contrastive model is best by F1 and recall-balanced classification, while Random Forest remains slightly better by PR-AUC.
-
-Small hyperparameter tuning results are saved in:
-
-```text
-contrastive_model/runs/hyperparameter_tuning/tuning_summary.csv
-```
-
-The selected final configuration is `corrupt_light_aug`, which reached a validation-threshold tuned F1 of `0.4749` on the original test set.
-
-The second tuning round is saved in:
-
-```text
-contrastive_model/runs/extra_tuning/tuning_summary.csv
-```
-
-It tested dropout, temperature, learning rate/weight decay, and embedding size around `corrupt_light_aug`. The best extra-tuning F1 was `0.4724` from `light_aug_dropout025`, so it did not beat the current single-model F1 of `0.4749`. The best extra-tuning PR-AUC was `0.4538` from `light_aug_temp015`, but that setting lowered F1. Keep `corrupt_light_aug` as the final single model when optimizing F1.
-
-## Multi-Seed Ensemble and Calibration
-
-The final single-model configuration was rerun with five seeds: `42, 7, 13, 21, 84`. Individual seeds showed meaningful variance:
+The individual seed results show moderate variance:
 
 ```text
 individual-seed F1 mean +/- std     = 0.4703 +/- 0.0069
 individual-seed PR-AUC mean +/- std = 0.4505 +/- 0.0033
 ```
 
-Averaging the five seed probabilities improved both F1 and PR-AUC on the original test set. The best threshold strategy was selected on validation by requiring validation precision >= `0.45` and then maximizing recall:
+Averaging predicted probabilities across the five models further improves performance. The best threshold is selected on the validation set by requiring validation precision >= `0.45` and then maximizing recall.
+
+The final ensemble result is:
 
 ```text
 method    = raw probability ensemble
@@ -260,26 +265,87 @@ ROC-AUC   = 0.8701
 PR-AUC    = 0.4583
 ```
 
-Platt calibration produced the same ranking and predictions at the selected threshold, while isotonic calibration reduced PR-AUC on this validation split. The best result is therefore the raw multi-seed probability ensemble with validation thresholding.
+The raw multi-seed probability ensemble achieves the best overall result. It improves over both the best MLP baseline and the best single contrastive model by F1. It also slightly improves over Random Forest in PR-AUC.
 
-Compared with baselines, the ensemble now has the best F1 and slightly improves over Random Forest PR-AUC (`0.4583` vs. `0.4569`).
+---
 
-Main ensemble files:
+## Ablation Study
+
+The ablation study compares the following model variants:
+
+| Model | Description |
+|---|---|
+| Logistic Regression | Linear baseline |
+| Random Forest | Nonlinear tree-based baseline |
+| MLP | Standard supervised neural network |
+| Embedding + MLP | Deep tabular model with categorical embeddings |
+| Contrastive + MLP | Contrastive pretraining followed by supervised fine-tuning |
+| Multi-seed Contrastive Ensemble | Probability averaging across independently trained contrastive models |
+
+The main improvement pattern is:
 
 ```text
-contrastive_model/runs/multi_seed_ensemble/ensemble_summary.txt
-contrastive_model/runs/multi_seed_ensemble/ensemble_metrics.csv
-contrastive_model/runs/multi_seed_ensemble/ensemble_vs_baselines.csv
+MLP F1                         = 0.4379
+Embedding + MLP F1             = 0.4653
+Single Contrastive + MLP F1    = 0.4749
+Multi-seed Contrastive F1      = 0.4813
 ```
 
-## Focal Loss Ablation
+This suggests that categorical embeddings improve tabular representation quality, contrastive pretraining provides additional representation-level gains, and multi-seed ensembling improves robustness.
 
-Focal loss was retested after the original val/test update. It still did not improve the main F1 result:
+---
+
+## Focal Loss Sensitivity
+
+Focal loss was also tested as an alternative supervised objective. It did not improve the main F1 result:
 
 ```text
 BCE tuned F1          = 0.4749
-Best focal tuned F1   = 0.4710   (alpha=0.50, gamma=1.0)
-Best focal PR-AUC     = 0.4540   (alpha=0.75, gamma=2.0)
+Best focal tuned F1   = 0.4710
+Best focal PR-AUC     = 0.4540
 ```
 
-Conclusion: keep `BCEWithLogitsLoss` for the main single model, and report focal loss as an ablation.
+The best focal-loss F1 was obtained with:
+
+```text
+alpha = 0.50
+gamma = 1.0
+```
+
+The best focal-loss PR-AUC was obtained with:
+
+```text
+alpha = 0.75
+gamma = 2.0
+```
+
+Since focal loss does not outperform BCE on the main F1 metric, the final model keeps `BCEWithLogitsLoss`.
+
+---
+
+## Output Files
+
+Final report-ready outputs are saved in `output/`:
+
+| File | Description |
+|---|---|
+| `baseline_ablation_results.csv` | Baseline and ablation comparison results |
+| `ensemble_metrics.csv` | Multi-seed ensemble metrics |
+| `ensemble_summary.txt` | Summary of ensemble performance |
+| `final_best_comparison.csv` | Final comparison across best-performing models |
+| `final_best_comparison.txt` | Text summary of final model comparison |
+| `training_curves.png` | Training loss and validation PR-AUC curves |
+
+---
+
+## Key Finding
+
+The final multi-seed contrastive ensemble achieves the best overall classification performance:
+
+```text
+F1      = 0.4813
+PR-AUC  = 0.4583
+ROC-AUC = 0.8701
+```
+
+The results indicate that contrastive representation learning improves high-value buyer prediction beyond standard supervised tabular models. The strongest gains come from combining categorical embeddings, tabular corruption-based contrastive pretraining, validation-based threshold tuning, and probability averaging across multiple random seeds.
