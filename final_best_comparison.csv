@@ -1,8 +1,0 @@
-rank,category,model,selection_or_threshold,accuracy,precision,recall,f1,roc_auc,pr_auc,key_note
-1,Final ensemble,Multi-seed Contrastive Ensemble,Raw probability average; validation precision >= 0.45 then maximize recall; threshold=0.552832,0.9356,0.4534,0.5127,0.4813,0.8701,0.4583,Best overall F1 and best PR-AUC in final comparison
-2,Single neural model,Projection-head Corruption Contrastive + MLP,BCEWithLogitsLoss; validation-tuned threshold=0.547651,0.9329,0.4365,0.5208,0.4749,0.8680,0.4526,Best single neural network
-3,Single neural ablation,Embedding + MLP,BCEWithLogitsLoss; validation-tuned threshold=0.579359,0.9351,0.4472,0.4850,0.4653,0.8694,0.4360,Embedding-only deep baseline
-4,Baseline,MLP,Best sklearn MLP baseline,0.9240,0.3848,0.5081,0.4379,0.8516,0.4195,Best baseline by F1
-5,Baseline,Random Forest,Best random forest baseline,0.9437,0.5238,0.3692,0.4331,0.8743,0.4569,Best baseline by PR-AUC
-6,Baseline,Linear Regression,Best validation threshold,0.9085,0.3151,0.4873,0.3827,0.8092,0.3120,Mathematical baseline
-7,Baseline,Logistic Regression,Best C on validation,0.9248,0.3657,0.3970,0.3807,0.8189,0.3486,Linear classifier baseline
